@@ -1,3 +1,18 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-app.js";
+import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAunmaIZyL5ZaHqQJHWc1-lI2b4o-NfU5o",
+  authDomain: "khata-31558.firebaseapp.com",
+  projectId: "khata-31558",
+  storageBucket: "khata-31558.firebasestorage.app",
+  messagingSenderId: "641698678021",
+  appId: "1:641698678021:web:31180a1cb2c15d5af2636c"
+};
+
+const app = initializeApp(firebaseConfig);
+const database = getDatabase(app);
+
 // Initialize Lucide icons
 lucide.createIcons();
 
@@ -35,13 +50,55 @@ const INITIAL_STATE = {
     excuseRequests: []
 };
 
-// Load state from local storage or use initial state
-let state = JSON.parse(localStorage.getItem('khata_state_v6')) || INITIAL_STATE;
+// Local variable for who is logged in on this specific device
+let currentLoggedInUser = localStorage.getItem('khata_currentUser') || null;
+
+let state = { ...INITIAL_STATE, currentUser: currentLoggedInUser };
 
 function saveState() {
-    localStorage.setItem('khata_state_v6', JSON.stringify(state));
+    // Save auth locally
+    if (state.currentUser) {
+        localStorage.setItem('khata_currentUser', state.currentUser);
+        currentLoggedInUser = state.currentUser;
+    } else {
+        localStorage.removeItem('khata_currentUser');
+        currentLoggedInUser = null;
+    }
+    
+    // Sync rest to Firebase
+    const payload = { ...state };
+    delete payload.currentUser;
+    set(ref(database, 'khata_data'), payload);
+    
+    // Fast local render
     render();
 }
+
+// Live Firebase sync
+onValue(ref(database, 'khata_data'), (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+        state = { 
+            currentUser: currentLoggedInUser,
+            users: data.users || INITIAL_STATE.users,
+            userTasks: data.userTasks || INITIAL_STATE.userTasks,
+            messages: data.messages || [],
+            finesHistory: data.finesHistory || [],
+            agendas: data.agendas || [],
+            excuseRequests: data.excuseRequests || []
+        };
+        render();
+        // If chat is open, scroll to bottom to see new messages
+        if (document.getElementById('view-chat')?.classList.contains('active')) {
+            scrollToBottom();
+        }
+    } else {
+        // If DB is empty, initialize it
+        const payload = { ...INITIAL_STATE };
+        delete payload.currentUser;
+        set(ref(database, 'khata_data'), payload);
+    }
+});
 
 // --- DOM ELEMENTS ---
 const viewDashboard = document.getElementById('view-dashboard');
@@ -263,6 +320,8 @@ window.toggleTask = function(taskId) {
     
     if (task) {
         task.completed = !task.completed;
+        
+        const todayStr = new Date().toDateString();
         
         // Check if all tasks are completed (including excused ones)
         const excusedCount = state.excuseRequests.filter(r => r.userId === state.currentUser && r.date === todayStr && r.status === 'approved').length;
