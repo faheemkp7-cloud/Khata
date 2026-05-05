@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Khata - Accountability</title>
+    
+    <!-- Google Fonts: Outfit for a modern, clean look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Splash Screen -->
+    <div id="splash-screen" class="splash-screen">
+        <h1 class="splash-text">مرحباً</h1>
+    </div>
+
+    <!-- Auth Screen -->
+    <div id="auth-screen" class="auth-screen" style="display: none;">
+        
+        <!-- Step 1: Select User -->
+        <div id="screen-select" class="auth-card text-center">
+            <div class="login-logo text-primary mb-4">
+                <i data-lucide="moon-star" style="width: 56px; height: 56px; margin: 0 auto;"></i>
+            </div>
+            <h2 class="mb-6">Who is signing in?</h2>
+            
+            <div class="user-select-list" style="display: flex; flex-direction: column; gap: 1rem;">
+                <button class="btn-select-user" data-userid="user_1">Mohammed faheem</button>
+                <button class="btn-select-user" data-userid="user_2">Mahmood Ihlas</button>
+                <button class="btn-select-user" data-userid="user_3">Mohammed Firoz</button>
+            </div>
+        </div>
+
+        <!-- Step 2: Setup Credentials -->
+        <div id="screen-setup" class="auth-card" style="display: none;">
+            <button class="btn-back icon-btn mb-4" style="margin-left: -0.5rem;"><i data-lucide="arrow-left"></i></button>
+            <h2 class="mb-2">Setup Account</h2>
+            <p class="text-muted mb-6 text-sm">Create your login credentials for <strong id="setup-name-display" class="text-primary"></strong>.</p>
+            
+            <div class="form-group mb-4">
+                <label style="display:block; margin-bottom:0.5rem; font-size:0.9rem;">User ID</label>
+                <input type="text" id="setup-userid" class="form-input w-full" placeholder="Choose a User ID" style="padding:0.75rem; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--bg-base); color:var(--text-primary);">
+            </div>
+            <div class="form-group mb-6">
+                <label style="display:block; margin-bottom:0.5rem; font-size:0.9rem;">Password</label>
+                <input type="password" id="setup-password" class="form-input w-full" placeholder="Choose a password" style="padding:0.75rem; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--bg-base); color:var(--text-primary);">
+            </div>
+            <button id="btn-save-creds" class="btn btn-primary w-full">Save & Sign In</button>
+        </div>
+
+        <!-- Step 3: Login -->
+        <div id="screen-login" class="auth-card" style="display: none;">
+            <button class="btn-back icon-btn mb-4" style="margin-left: -0.5rem;"><i data-lucide="arrow-left"></i></button>
+            <h2 class="mb-2">Welcome Back</h2>
+            <p class="text-muted mb-6 text-sm">Sign in as <strong id="login-name-display" class="text-primary"></strong>.</p>
+            
+            <div class="form-group mb-4">
+                <label style="display:block; margin-bottom:0.5rem; font-size:0.9rem;">User ID</label>
+                <input type="text" id="login-userid" class="form-input w-full" placeholder="Enter User ID" style="padding:0.75rem; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--bg-base); color:var(--text-primary);">
+            </div>
+            <div class="form-group mb-6">
+                <label style="display:block; margin-bottom:0.5rem; font-size:0.9rem;">Password</label>
+                <input type="password" id="login-password" class="form-input w-full" placeholder="Enter Password" style="padding:0.75rem; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--bg-base); color:var(--text-primary);">
+            </div>
+            <button id="btn-login" class="btn btn-primary w-full">Sign In</button>
+            <p id="login-error" class="text-danger text-sm mt-4 text-center" style="display: none; color: var(--danger);">Incorrect User ID or Password.</p>
+        </div>
+    </div>
+
+    <div id="app" class="app-container" style="display: none;">
+        <!-- Top App Bar -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo">
+                    <i data-lucide="moon-star" class="text-primary"></i>
+                    <h1 id="header-title">Khata</h1>
+                </div>
+            </div>
+            <div class="header-right" style="display: flex; align-items: center; gap: 0.25rem;">
+                <button id="theme-toggle" class="icon-btn" aria-label="Toggle theme">
+                    <i data-lucide="sun" class="sun-icon"></i>
+                    <i data-lucide="moon" class="moon-icon"></i>
+                </button>
+                <button id="btn-logout" class="icon-btn" aria-label="Logout" style="color: var(--danger);">
+                    <i data-lucide="log-out"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main id="main-content" class="content-area">
+            
+            <!-- Dashboard View -->
+            <section id="view-dashboard" class="view active">
+                <div class="user-greeting">
+                    <p class="greeting-text">As-salamu alaykum,</p>
+                    <h2 id="current-user-name">Brother</h2>
+                </div>
+
+                <!-- Meeting Reminder -->
+                <div class="card reminder-card">
+                    <div class="reminder-content">
+                        <div class="reminder-icon">
+                            <i data-lucide="calendar-clock"></i>
+                        </div>
+                        <div class="reminder-text">
+                            <h3>Weekly Check-in</h3>
+                            <p>Every Friday • 10:30 PM IST</p>
+                        </div>
+                    </div>
+                    
+                    <div class="agendas-section mt-4" style="background: rgba(0,0,0,0.1); padding: 0.75rem; border-radius: var(--radius-sm);">
+                        <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.25rem;">
+                            <i data-lucide="list-todo" style="width:16px;height:16px;"></i> Agendas
+                        </h4>
+                        <ul id="agenda-list" style="list-style: none; padding: 0; margin: 0; font-size: 0.85rem; display: flex; flex-direction: column; gap: 0.35rem;">
+                            <!-- Rendered via JS -->
+                        </ul>
+                        
+                        <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
+                            <input type="text" id="agenda-input" placeholder="Add topic to discuss..." style="flex: 1; padding: 0.4rem 0.5rem; border: none; border-radius: 4px; font-size: 0.8rem; outline: none; color: #111;">
+                            <button id="btn-add-agenda" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 0.4rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 500; transition: background 0.2s;">Add</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Daily Checklist -->
+                <div class="card checklist-card">
+                    <div class="card-header">
+                        <h3>Daily Tasks</h3>
+                        <span class="progress-badge" id="daily-progress">0/4</span>
+                    </div>
+                    <div class="checklist" id="daily-checklist">
+                        <!-- Rendered via JS -->
+                    </div>
+                </div>
+
+                <!-- Leaderboard / Group Status -->
+                <div class="card group-card">
+                    <div class="card-header">
+                        <h3>Brotherhood</h3>
+                        <button class="text-btn text-primary">View All</button>
+                    </div>
+                    <div class="leaderboard" id="leaderboard-container">
+                        <!-- Rendered via JS -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Fines View -->
+            <section id="view-fines" class="view hidden">
+                <div class="fines-header">
+                    <h2>Penalties</h2>
+                    <p class="text-muted">Pay your fines for missed habits to maintain accountability.</p>
+                </div>
+                
+                <div class="card qr-card text-center">
+                    <h3>Group Fund (Google Pay)</h3>
+                    <p class="text-sm text-secondary mb-4">Mohammed Faheem KP</p>
+                    <div class="qr-container">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=faheemkp7-3@oksbi&pn=Mohammed%20Faheem%20KP" alt="Google Pay QR Code" class="qr-image" id="fines-qr-code">
+                    </div>
+                    <p class="text-sm font-medium mt-4">UPI ID: faheemkp7-3@oksbi</p>
+                    <p class="text-sm text-muted">Scan using Google Pay or any UPI app</p>
+                    
+                    <div class="upload-proof mt-6">
+                        <button class="btn btn-primary w-full" id="btn-upload-proof">
+                            <i data-lucide="upload"></i> Upload Receipt
+                        </button>
+                    </div>
+                </div>
+
+                <div class="fine-rules mt-6 p-3" style="background-color: var(--primary-transparent); border-radius: var(--radius-sm); border-left: 3px solid var(--danger);">
+                    <p class="text-sm font-medium" style="color: var(--danger);"><i data-lucide="alert-triangle" style="width:16px;height:16px;vertical-align:-3px;margin-right:4px;"></i> Rule: First fine is ₹10. Each repeat violation doubles the amount (₹20, ₹40, ₹80...).</p>
+                </div>
+
+                <div class="payment-history-section mt-6">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                        <h3>Payment History</h3>
+                    </div>
+
+                    <!-- Manual Add Form -->
+                    <div class="card add-payment-card">
+                        <h4 class="text-sm mb-2 text-muted">Manually Log Payment</h4>
+                        <div class="add-payment-form" style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+                            <select id="payment-user" class="form-input" style="flex:2; padding:0.5rem; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--bg-base); color:var(--text-primary);">
+                                <option value="user_1">Mohammed faheem</option>
+                                <option value="user_2">Mahmood Ihlas</option>
+                                <option value="user_3">Mohammed Firoz</option>
+                            </select>
+                            <input type="number" id="payment-amount" class="form-input" placeholder="₹ Amt" style="flex:1; padding:0.5rem; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--bg-base); color:var(--text-primary);">
+                            <button id="btn-add-payment" class="btn btn-primary" style="padding:0.5rem 1rem;">Add</button>
+                        </div>
+                    </div>
+                    
+                    <!-- History List -->
+                    <div id="history-list" class="history-list">
+                        <!-- Rendered via JS -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Chat & Video View -->
+            <section id="view-chat" class="view hidden chat-layout">
+                <div class="chat-header-actions" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h2>Group Chat</h2>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button id="btn-launch-teams" class="btn btn-icon btn-video" style="background-color: #5558AF; color: white;">
+                            <i data-lucide="video"></i>
+                            <span>Join Teams</span>
+                        </button>
+                        <button id="btn-edit-teams-link" class="btn btn-icon" style="padding: 0.5rem; background: var(--bg-surface); border: 1px solid var(--border);" title="Set Meeting Link">
+                            <i data-lucide="link" style="width: 16px; height: 16px;"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="chat-messages" id="chat-messages">
+                    <!-- Rendered via JS -->
+                </div>
+                
+                <div class="chat-input-area">
+                    <button class="icon-btn"><i data-lucide="paperclip"></i></button>
+                    <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off">
+                    <button class="icon-btn text-primary" id="btn-send-message"><i data-lucide="send"></i></button>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" data-target="view-dashboard">
+                <i data-lucide="layout-dashboard"></i>
+                <span>Tasks</span>
+            </button>
+            <button class="nav-item" data-target="view-chat">
+                <i data-lucide="message-circle"></i>
+                <span>Chat</span>
+            </button>
+            <button class="nav-item" data-target="view-fines">
+                <i data-lucide="wallet"></i>
+                <span>Fines</span>
+            </button>
+        </nav>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
