@@ -2,19 +2,25 @@
 lucide.createIcons();
 
 // --- STATE MANAGEMENT ---
+const defaultTasks = [
+    { id: 't1', title: '5 Daily Salah', desc: 'Fajr, Dhuhr, Asr, Maghrib, Isha', completed: false },
+    { id: 't2', title: 'Quran Reading', desc: 'Minimum 2 pages', completed: false },
+    { id: 't3', title: 'Self-Improvement', desc: 'Read 10 pages of a book', completed: false },
+    { id: 't4', title: 'Avoid Distractions', desc: 'No mindless scrolling', completed: false }
+];
+
 const INITIAL_STATE = {
     currentUser: null,
     users: {
-        'user_1': { id: 'user_1', name: 'Mohammed faheem', credentials: null, streak: 12, score: 95 },
-        'user_2': { id: 'user_2', name: 'Mahmood Ihlas', credentials: null, streak: 8, score: 80 },
-        'user_3': { id: 'user_3', name: 'Mohammed Firoz', credentials: null, streak: 15, score: 100 }
+        'user_1': { id: 'user_1', name: 'Mohammed faheem', credentials: null, streak: 0, score: 0, lastStreakDate: null },
+        'user_2': { id: 'user_2', name: 'Mahmood Ihlas', credentials: null, streak: 0, score: 0, lastStreakDate: null },
+        'user_3': { id: 'user_3', name: 'Mohammed Firoz', credentials: null, streak: 0, score: 0, lastStreakDate: null }
     },
-    tasks: [
-        { id: 't1', title: '5 Daily Salah', desc: 'Fajr, Dhuhr, Asr, Maghrib, Isha', completed: false },
-        { id: 't2', title: 'Quran Reading', desc: 'Minimum 2 pages', completed: false },
-        { id: 't3', title: 'Self-Improvement', desc: 'Read 10 pages of a book', completed: false },
-        { id: 't4', title: 'Avoid Distractions', desc: 'No mindless scrolling', completed: false }
-    ],
+    userTasks: {
+        'user_1': JSON.parse(JSON.stringify(defaultTasks)),
+        'user_2': JSON.parse(JSON.stringify(defaultTasks)),
+        'user_3': JSON.parse(JSON.stringify(defaultTasks))
+    },
     messages: [
         { id: 'm1', senderId: 'user_2', text: 'As-salamu alaykum brothers! Just finished my Quran reading.', timestamp: '09:00 AM' },
         { id: 'm2', senderId: 'user_3', text: 'Wa alaykum as-salam. Mashallah!', timestamp: '09:05 AM' }
@@ -29,10 +35,10 @@ const INITIAL_STATE = {
 };
 
 // Load state from local storage or use initial state
-let state = JSON.parse(localStorage.getItem('khata_state_v4')) || INITIAL_STATE;
+let state = JSON.parse(localStorage.getItem('khata_state_v5')) || INITIAL_STATE;
 
 function saveState() {
-    localStorage.setItem('khata_state_v4', JSON.stringify(state));
+    localStorage.setItem('khata_state_v5', JSON.stringify(state));
     render();
 }
 
@@ -146,7 +152,8 @@ function renderDashboard() {
     let completedCount = 0;
     dailyChecklistEl.innerHTML = '';
     
-    state.tasks.forEach(task => {
+    const userTasks = state.userTasks[state.currentUser] || [];
+    userTasks.forEach(task => {
         if (task.completed) completedCount++;
         
         const taskEl = document.createElement('div');
@@ -163,13 +170,40 @@ function renderDashboard() {
         dailyChecklistEl.appendChild(taskEl);
     });
 
-    dailyProgressEl.textContent = `${completedCount}/${state.tasks.length}`;
+    dailyProgressEl.textContent = `${completedCount}/${userTasks.length}`;
 }
 
 window.toggleTask = function(taskId) {
-    const task = state.tasks.find(t => t.id === taskId);
+    const user = state.users[state.currentUser];
+    const userTasks = state.userTasks[state.currentUser];
+    const task = userTasks.find(t => t.id === taskId);
+    
     if (task) {
         task.completed = !task.completed;
+        
+        // Check if all tasks are completed
+        const completedCount = userTasks.filter(t => t.completed).length;
+        const totalCount = userTasks.length;
+        const todayStr = new Date().toDateString();
+        
+        if (completedCount === totalCount) {
+            // All completed
+            if (user.lastStreakDate !== todayStr) {
+                user.streak += 1;
+                user.lastStreakDate = todayStr;
+            }
+        } else {
+            // Not all completed
+            if (user.lastStreakDate === todayStr) {
+                // They unchecked a task today, so revert the streak addition
+                user.streak = Math.max(0, user.streak - 1);
+                user.lastStreakDate = null; // Reset today's flag
+            }
+        }
+        
+        // Update score (percentage of tasks completed)
+        user.score = Math.round((completedCount / totalCount) * 100);
+        
         saveState();
     }
 }
