@@ -138,11 +138,22 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- Pending Approvals (Only visible if there are requests to vote on) -->
+                <div id="pending-approvals-container" style="display: none;">
+                    <div class="pending-approvals-card">
+                        <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--text-primary);"><i data-lucide="shield-alert" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px;"></i> Pending Approvals</h3>
+                        <p class="text-sm text-muted" style="margin-bottom: 0.75rem;">Your brothers need your approval for missed habits.</p>
+                        <div id="approvals-list">
+                            <!-- Rendered via JS -->
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Daily Checklist -->
                 <div class="card checklist-card">
-                    <div class="card-header">
-                        <h3>Daily Tasks</h3>
+                    <div class="card-header" style="align-items: center;">
+                        <h3 style="display: flex; align-items: center; gap: 0.5rem;">Daily Tasks <span id="daily-date" style="font-size: 0.75rem; font-weight: 400; color: var(--text-muted);"></span></h3>
                         <span class="progress-badge" id="daily-progress">0/4</span>
                     </div>
                     <div class="checklist" id="daily-checklist">

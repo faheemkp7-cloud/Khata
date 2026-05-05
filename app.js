@@ -31,14 +31,15 @@ const INITIAL_STATE = {
     agendas: [
         { id: 'a1', text: 'Review weekly habits' },
         { id: 'a2', text: 'Discuss book insights' }
-    ]
+    ],
+    excuseRequests: []
 };
 
 // Load state from local storage or use initial state
-let state = JSON.parse(localStorage.getItem('khata_state_v5')) || INITIAL_STATE;
+let state = JSON.parse(localStorage.getItem('khata_state_v6')) || INITIAL_STATE;
 
 function saveState() {
-    localStorage.setItem('khata_state_v5', JSON.stringify(state));
+    localStorage.setItem('khata_state_v6', JSON.stringify(state));
     render();
 }
 
@@ -73,6 +74,7 @@ let selectedUserIdForAuth = null;
 // Dashboard Elements
 const dailyChecklistEl = document.getElementById('daily-checklist');
 const dailyProgressEl = document.getElementById('daily-progress');
+const dailyDateEl = document.getElementById('daily-date');
 const leaderboardContainer = document.getElementById('leaderboard-container');
 const currentUserName = document.getElementById('current-user-name');
 const agendaListEl = document.getElementById('agenda-list');
@@ -148,6 +150,44 @@ function render() {
 function renderDashboard() {
     const currentUser = state.users[state.currentUser];
     currentUserName.textContent = currentUser.name;
+    
+    const todayStr = new Date().toDateString();
+    
+    if (dailyDateEl) {
+        dailyDateEl.textContent = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    }
+    
+    // 1. Render approvals for OTHER users
+    const pendingApprovalsContainer = document.getElementById('pending-approvals-container');
+    const approvalsList = document.getElementById('approvals-list');
+    
+    if (pendingApprovalsContainer && approvalsList) {
+        const pendingForMe = state.excuseRequests.filter(req => req.status === 'pending' && req.userId !== state.currentUser && req.votes[state.currentUser] === null);
+        
+        if (pendingForMe.length > 0) {
+            pendingApprovalsContainer.style.display = 'block';
+            approvalsList.innerHTML = '';
+            
+            pendingForMe.forEach(req => {
+                const requesterName = state.users[req.userId].name;
+                const taskName = state.userTasks[req.userId].find(t => t.id === req.taskId)?.title || 'Unknown Task';
+                
+                const item = document.createElement('div');
+                item.className = 'approval-item';
+                item.innerHTML = `
+                    <div style="font-size: 0.85rem; font-weight: 500; margin-bottom: 0.25rem;">${requesterName} missed "${taskName}"</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); font-style: italic;">"${req.reason}"</div>
+                    <div class="approval-actions">
+                        <button class="btn-approve" onclick="castVote('${req.id}', 'approve')">Approve</button>
+                        <button class="btn-reject" onclick="castVote('${req.id}', 'reject')">Reject</button>
+                    </div>
+                `;
+                approvalsList.appendChild(item);
+            });
+        } else {
+            pendingApprovalsContainer.style.display = 'none';
+        }
+    }
 
     let completedCount = 0;
     dailyChecklistEl.innerHTML = '';
@@ -156,21 +196,64 @@ function renderDashboard() {
     userTasks.forEach(task => {
         if (task.completed) completedCount++;
         
+        const excuseReq = state.excuseRequests.find(r => r.userId === state.currentUser && r.taskId === task.id && r.date === todayStr);
+        
         const taskEl = document.createElement('div');
         taskEl.className = `checklist-item ${task.completed ? 'completed' : ''}`;
-        taskEl.innerHTML = `
-            <div class="checkbox-custom" onclick="toggleTask('${task.id}')">
-                <i data-lucide="check"></i>
-            </div>
-            <div class="task-content" onclick="toggleTask('${task.id}')">
-                <div class="task-name">${task.title}</div>
-                <div class="task-desc">${task.desc}</div>
-            </div>
-        `;
+        
+        if (excuseReq) {
+            let statusHtml = '';
+            if (excuseReq.status === 'pending') {
+                const votesCount = Object.values(excuseReq.votes).filter(v => v === 'approve').length;
+                statusHtml = `<div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem;"><i data-lucide="clock" style="width:14px;height:14px;vertical-align:-2px;"></i> Excuse pending approval... (${votesCount}/2 Approved)</div>`;
+            } else if (excuseReq.status === 'approved') {
+                statusHtml = `<div style="font-size:0.8rem; color:var(--success); margin-top:0.5rem;"><i data-lucide="check-circle" style="width:14px;height:14px;vertical-align:-2px;"></i> Excuse Approved. Task excused for today.</div>`;
+            } else if (excuseReq.status === 'rejected') {
+                statusHtml = `
+                    <div style="font-size:0.8rem; color:var(--danger); margin-top:0.5rem; font-weight:500;">
+                        <i data-lucide="x-circle" style="width:14px;height:14px;vertical-align:-2px;"></i> Excuse Rejected. Fine required.
+                    </div>
+                    <button class="btn btn-primary mt-2" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="resolveRejectedExcuse('${excuseReq.id}')">Mark Fine as Paid</button>
+                `;
+            } else if (excuseReq.status === 'resolved') {
+                 statusHtml = `<div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem;"><i data-lucide="check" style="width:14px;height:14px;vertical-align:-2px;"></i> Rejected, fine paid.</div>`;
+            }
+            
+            taskEl.innerHTML = `
+                <div class="checkbox-custom" style="opacity: 0.5; pointer-events: none;">
+                    <i data-lucide="${excuseReq.status === 'approved' ? 'check' : 'x'}"></i>
+                </div>
+                <div class="task-content">
+                    <div class="task-name" style="${excuseReq.status === 'approved' ? 'text-decoration: line-through;' : ''}">${task.title}</div>
+                    <div class="task-desc">${task.desc}</div>
+                    ${statusHtml}
+                </div>
+            `;
+        } else {
+            taskEl.innerHTML = `
+                <div class="checkbox-custom" onclick="toggleTask('${task.id}')">
+                    <i data-lucide="check"></i>
+                </div>
+                <div class="task-content" style="flex:1;">
+                    <div class="task-name" onclick="toggleTask('${task.id}')">${task.title}</div>
+                    <div class="task-desc" onclick="toggleTask('${task.id}')">${task.desc}</div>
+                    <div id="excuse-input-container-${task.id}" class="excuse-input-container" style="display:none;">
+                        <textarea id="excuse-input-${task.id}" class="excuse-input" placeholder="Reason for missing..."></textarea>
+                        <div style="display:flex; gap:0.5rem;">
+                            <button class="btn btn-primary" style="flex:1; padding:0.4rem; font-size:0.8rem;" onclick="submitExcuse('${task.id}')">Submit</button>
+                            <button class="btn" style="background:var(--bg-hover); color:var(--text-primary); border:1px solid var(--border); padding:0.4rem; font-size:0.8rem;" onclick="cancelExcuse('${task.id}')">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+                ${!task.completed ? `<button class="btn-missed" onclick="showExcuseInput('${task.id}', event)"><i data-lucide="x" style="width:14px;height:14px;"></i> Missed</button>` : ''}
+            `;
+        }
+        
         dailyChecklistEl.appendChild(taskEl);
     });
 
-    dailyProgressEl.textContent = `${completedCount}/${userTasks.length}`;
+    const excusedCount = state.excuseRequests.filter(r => r.userId === state.currentUser && r.date === todayStr && r.status === 'approved').length;
+    dailyProgressEl.textContent = `${completedCount + excusedCount}/${userTasks.length}`;
 }
 
 window.toggleTask = function(taskId) {
@@ -181,12 +264,12 @@ window.toggleTask = function(taskId) {
     if (task) {
         task.completed = !task.completed;
         
-        // Check if all tasks are completed
+        // Check if all tasks are completed (including excused ones)
+        const excusedCount = state.excuseRequests.filter(r => r.userId === state.currentUser && r.date === todayStr && r.status === 'approved').length;
         const completedCount = userTasks.filter(t => t.completed).length;
         const totalCount = userTasks.length;
-        const todayStr = new Date().toDateString();
         
-        if (completedCount === totalCount) {
+        if (completedCount + excusedCount >= totalCount) {
             // All completed
             if (user.lastStreakDate !== todayStr) {
                 user.streak += 1;
@@ -202,10 +285,110 @@ window.toggleTask = function(taskId) {
         }
         
         // Update score (percentage of tasks completed)
-        user.score = Math.round((completedCount / totalCount) * 100);
+        user.score = Math.round(((completedCount + excusedCount) / totalCount) * 100);
         
         saveState();
     }
+}
+
+// --- EXCUSE & APPROVAL LOGIC ---
+
+window.showExcuseInput = function(taskId, event) {
+    if (event) event.stopPropagation();
+    const container = document.getElementById(`excuse-input-container-${taskId}`);
+    if (container) container.style.display = 'flex';
+}
+
+window.cancelExcuse = function(taskId) {
+    const container = document.getElementById(`excuse-input-container-${taskId}`);
+    if (container) container.style.display = 'none';
+}
+
+window.submitExcuse = function(taskId) {
+    const inputEl = document.getElementById(`excuse-input-${taskId}`);
+    const reason = inputEl.value.trim();
+    
+    if (!reason) {
+        alert("Please provide a reason.");
+        return;
+    }
+    
+    // Prepare votes object initialized to null for other users
+    const votes = {};
+    Object.keys(state.users).forEach(uid => {
+        if (uid !== state.currentUser) {
+            votes[uid] = null;
+        }
+    });
+    
+    state.excuseRequests.push({
+        id: 'req_' + Date.now(),
+        userId: state.currentUser,
+        taskId: taskId,
+        date: new Date().toDateString(),
+        reason: reason,
+        votes: votes,
+        status: 'pending'
+    });
+    
+    saveState();
+}
+
+window.castVote = function(reqId, voteType) {
+    const req = state.excuseRequests.find(r => r.id === reqId);
+    if (!req) return;
+    
+    req.votes[state.currentUser] = voteType;
+    
+    // Check if all votes are in
+    const voteValues = Object.values(req.votes);
+    if (voteValues.every(v => v !== null)) {
+        // Evaluate outcome
+        if (voteValues.every(v => v === 'approve')) {
+            req.status = 'approved';
+            
+            // Auto increment streak if this makes them 4/4
+            const user = state.users[req.userId];
+            const userTasks = state.userTasks[req.userId];
+            const completedCount = userTasks.filter(t => t.completed).length;
+            const excusedCount = state.excuseRequests.filter(r => r.userId === req.userId && r.date === req.date && r.status === 'approved').length;
+            if (completedCount + excusedCount >= userTasks.length) {
+                if (user.lastStreakDate !== req.date) {
+                    user.streak += 1;
+                    user.lastStreakDate = req.date;
+                    user.score = Math.round(((completedCount + excusedCount) / userTasks.length) * 100);
+                }
+            }
+        } else {
+            req.status = 'rejected';
+        }
+    }
+    
+    saveState();
+}
+
+window.resolveRejectedExcuse = function(reqId) {
+    const req = state.excuseRequests.find(r => r.id === reqId);
+    if (!req) return;
+    
+    // Add fine to history
+    // Logic for amount: 10, then double
+    let amount = 10;
+    const userFines = state.finesHistory.filter(f => f.userId === state.currentUser).sort((a,b) => b.amount - a.amount);
+    if (userFines.length > 0) {
+        amount = userFines[0].amount * 2;
+    }
+    
+    state.finesHistory.push({
+        id: 'f_' + Date.now(),
+        userId: state.currentUser,
+        amount: amount,
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    });
+    
+    req.status = 'resolved';
+    saveState();
+    alert(`Fine of ₹${amount} recorded as paid. Please ensure you transfer it.`);
 }
 
 function renderLeaderboard() {

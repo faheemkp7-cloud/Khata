@@ -598,3 +598,98 @@ body {
 .nav-item.active i {
     transform: scale(1.1);
 }
+
+/* Excuse Requests */
+.btn-missed {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+    border: 1px solid var(--danger);
+    border-radius: var(--radius-sm);
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+.btn-missed:hover {
+    background-color: var(--danger);
+    color: white;
+}
+
+.excuse-input-container {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.excuse-input {
+    width: 100%;
+    background-color: var(--bg-base);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    resize: vertical;
+    min-height: 60px;
+    outline: none;
+}
+.excuse-input:focus {
+    border-color: var(--primary);
+}
+
+.pending-approvals-card {
+    background-color: rgba(16, 185, 129, 0.1);
+    border: 1px solid var(--primary);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.approval-item {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border);
+    padding: 0.75rem;
+    border-radius: var(--radius-sm);
+    margin-bottom: 0.5rem;
+}
+.approval-item:last-child {
+    margin-bottom: 0;
+}
+
+.approval-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.btn-approve {
+    background-color: var(--success);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 0.4rem 0.75rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+    flex: 1;
+    transition: opacity 0.2s;
+}
+.btn-approve:hover { opacity: 0.9; }
+
+.btn-reject {
+    background-color: var(--danger);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 0.4rem 0.75rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+    flex: 1;
+    transition: opacity 0.2s;
+}
+.btn-reject:hover { opacity: 0.9; }
