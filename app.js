@@ -1,5 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, setDoc } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDUdx2mxoExiAsxyktlzSfUgp8HHEsbbS8",
@@ -12,6 +13,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
 // Initialize Lucide icons
@@ -37,10 +39,7 @@ const INITIAL_STATE = {
         'user_2': JSON.parse(JSON.stringify(defaultTasks)),
         'user_3': JSON.parse(JSON.stringify(defaultTasks))
     },
-    messages: [
-        { id: 'm1', senderId: 'user_2', text: 'As-salamu alaykum brothers! Just finished my Quran reading.', timestamp: '09:00 AM' },
-        { id: 'm2', senderId: 'user_3', text: 'Wa alaykum as-salam. Mashallah!', timestamp: '09:05 AM' }
-    ],
+    messages: [],
     finesHistory: [
         { id: 'f1', userId: 'user_2', amount: 10, date: '2026-05-01' }
     ],
@@ -52,11 +51,22 @@ const INITIAL_STATE = {
 };
 
 // Load state from local storage or use initial state
-let state = JSON.parse(localStorage.getItem('khata_state_v6')) || INITIAL_STATE;
+let state = JSON.parse(JSON.stringify(INITIAL_STATE));
 
-function saveState() {
-    localStorage.setItem('khata_state_v6', JSON.stringify(state));
-    render();
+async function saveState() {
+    const sharedData = {
+        users: state.users,
+        userTasks: state.userTasks,
+        finesHistory: state.finesHistory,
+        agendas: state.agendas,
+        excuseRequests: state.excuseRequests
+    };
+    
+    try {
+        await setDoc(doc(db, "appState", "global"), sharedData, { merge: true });
+    } catch (e) {
+        console.error("Error saving state to Firestore:", e);
+    }
 }
 
 // --- DOM ELEMENTS ---
@@ -431,17 +441,16 @@ function renderChat() {
     chatMessagesEl.innerHTML = '';
     state.messages.forEach(msg => {
         const isMe = msg.senderId === state.currentUser;
-        const sender = state.users[msg.senderId];
         const msgEl = document.createElement('div');
         msgEl.className = `message ${isMe ? 'msg-sent' : 'msg-received'}`;
         
         let html = '';
         if (!isMe) {
-            html += `<div class="msg-sender">${sender.name}</div>`;
+            html += `<div class="msg-sender">${msg.senderName || 'Unknown User'}</div>`;
         }
         html += `
             <div class="msg-text">${msg.text}</div>
-            <div class="msg-time">${msg.timestamp}</div>
+            <div class="msg-time">${msg.localTimeStr || msg.timestamp || ''}</div>
         `;
         msgEl.innerHTML = html;
         chatMessagesEl.appendChild(msgEl);
@@ -462,23 +471,29 @@ chatInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendMessage();
 });
 
-function sendMessage() {
+async function sendMessage() {
     const text = chatInput.value.trim();
-    if (!text) return;
+    if (!text || !state.currentUser) return;
+    
+    chatInput.value = ''; // clear early for UX
     
     const now = new Date();
     const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const currentUserObj = state.users[state.currentUser];
+    const senderName = currentUserObj ? currentUserObj.name : (auth.currentUser ? auth.currentUser.displayName : 'Unknown');
     
-    state.messages.push({
-        id: 'm' + Date.now(),
-        senderId: state.currentUser,
-        text: text,
-        timestamp: timeString
-    });
-    
-    chatInput.value = '';
-    saveState();
-    scrollToBottom();
+    try {
+        await addDoc(collection(db, "messages"), {
+            senderId: state.currentUser,
+            senderName: senderName,
+            text: text,
+            timestamp: serverTimestamp(),
+            localTimeStr: timeString
+        });
+        scrollToBottom();
+    } catch (e) {
+        console.error("Error sending message: ", e);
+    }
 }
 
 // MS Teams Launch & Edit
@@ -559,10 +574,8 @@ btnAuthSubmit.addEventListener('click', async () => {
         if (isSignupMode) {
             const userCred = await createUserWithEmailAndPassword(auth, email, password);
             await updateProfile(userCred.user, { displayName: name });
-            initializeUserInState(userCred.user.uid, name);
         } else {
             const userCred = await signInWithEmailAndPassword(auth, email, password);
-            initializeUserInState(userCred.user.uid, userCred.user.displayName || email.split('@')[0]);
         }
     } catch (err) {
         authError.textContent = err.message;
@@ -576,25 +589,13 @@ btnAuthSubmit.addEventListener('click', async () => {
 // Handle Google Sign-in
 btnGoogleSignin.addEventListener('click', async () => {
     try {
-        const result = await signInWithPopup(auth, googleProvider);
-        initializeUserInState(result.user.uid, result.user.displayName || 'Google User');
+        await signInWithPopup(auth, googleProvider);
     } catch (err) {
         authError.textContent = err.message;
         authError.style.display = 'block';
         console.error(err);
     }
 });
-
-function initializeUserInState(uid, name) {
-    if (!state.users[uid]) {
-        state.users[uid] = { id: uid, name: name, credentials: null, streak: 0, score: 0, lastStreakDate: null };
-    }
-    if (!state.userTasks[uid]) {
-        state.userTasks[uid] = JSON.parse(JSON.stringify(defaultTasks));
-    }
-    state.currentUser = uid;
-    saveState();
-}
 
 // Logout
 if(btnLogout) {
@@ -609,14 +610,82 @@ if(btnLogout) {
     });
 }
 
+// Firebase Chat Listener
+let unsubscribeChat = null;
+
+function setupChatListener() {
+    if (unsubscribeChat) unsubscribeChat();
+    
+    const q = query(collection(db, "messages"), orderBy("timestamp", "asc"));
+    unsubscribeChat = onSnapshot(q, (snapshot) => {
+        state.messages = [];
+        snapshot.forEach((doc) => {
+            state.messages.push({ id: doc.id, ...doc.data() });
+        });
+        
+        const isChatOpen = document.getElementById('view-chat').classList.contains('active');
+        if (isChatOpen) {
+            renderChat();
+            scrollToBottom();
+        } else {
+            renderChat();
+        }
+    });
+}
+
+// App State Listener
+let unsubscribeState = null;
+
+function setupStateListener(uid, name) {
+    if (unsubscribeState) unsubscribeState();
+    
+    unsubscribeState = onSnapshot(doc(db, "appState", "global"), (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            state.users = data.users || state.users;
+            state.userTasks = data.userTasks || state.userTasks;
+            state.finesHistory = data.finesHistory || state.finesHistory;
+            state.agendas = data.agendas || state.agendas;
+            state.excuseRequests = data.excuseRequests || state.excuseRequests;
+        }
+        
+        state.currentUser = uid;
+        let needsSave = false;
+        
+        if (!state.users[uid]) {
+            state.users[uid] = { id: uid, name: name, credentials: null, streak: 0, score: 0, lastStreakDate: null };
+            needsSave = true;
+        }
+        if (!state.userTasks[uid]) {
+            state.userTasks[uid] = JSON.parse(JSON.stringify(defaultTasks));
+            needsSave = true;
+        }
+        
+        if (needsSave) {
+            saveState();
+        }
+        
+        render();
+    });
+}
+
 // Firebase Auth State Listener
 onAuthStateChanged(auth, (user) => {
     if (user) {
-        initializeUserInState(user.uid, user.displayName || (user.email ? user.email.split('@')[0] : 'User'));
+        const name = user.displayName || (user.email ? user.email.split('@')[0] : 'User');
         authScreen.style.display = 'none';
         appContainer.style.display = 'flex';
-        render(); // Force render to show correct data
+        setupChatListener();
+        setupStateListener(user.uid, name);
     } else {
+        if (unsubscribeChat) {
+            unsubscribeChat();
+            unsubscribeChat = null;
+        }
+        if (unsubscribeState) {
+            unsubscribeState();
+            unsubscribeState = null;
+        }
         state.currentUser = null;
         appContainer.style.display = 'none';
         authScreen.style.display = 'flex';
