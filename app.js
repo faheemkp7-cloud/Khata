@@ -1,3 +1,19 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDUdx2mxoExiAsxyktlzSfUgp8HHEsbbS8",
+  authDomain: "khata-2aac7.firebaseapp.com",
+  projectId: "khata-2aac7",
+  storageBucket: "khata-2aac7.firebasestorage.app",
+  messagingSenderId: "388604048968",
+  appId: "1:388604048968:web:0589feb46e180e76cb0a7d"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
+
 // Initialize Lucide icons
 lucide.createIcons();
 
@@ -53,23 +69,19 @@ const htmlEl = document.documentElement;
 
 // Auth Elements
 const authScreen = document.getElementById('auth-screen');
-const screenSelect = document.getElementById('screen-select');
-const screenSetup = document.getElementById('screen-setup');
-const screenLogin = document.getElementById('screen-login');
+const authTitle = document.getElementById('auth-title');
+const authSubtitle = document.getElementById('auth-subtitle');
+const authNameGroup = document.getElementById('auth-name-group');
+const authName = document.getElementById('auth-name');
+const authEmail = document.getElementById('auth-email');
+const authPassword = document.getElementById('auth-password');
+const btnAuthSubmit = document.getElementById('btn-auth-submit');
+const btnGoogleSignin = document.getElementById('btn-google-signin');
+const authError = document.getElementById('auth-error');
+const toggleAuthMode = document.getElementById('toggle-auth-mode');
 const btnLogout = document.getElementById('btn-logout');
 
-const setupNameDisplay = document.getElementById('setup-name-display');
-const setupUserid = document.getElementById('setup-userid');
-const setupPassword = document.getElementById('setup-password');
-const btnSaveCreds = document.getElementById('btn-save-creds');
-
-const loginNameDisplay = document.getElementById('login-name-display');
-const loginUserid = document.getElementById('login-userid');
-const loginPassword = document.getElementById('login-password');
-const btnLogin = document.getElementById('btn-login');
-const loginError = document.getElementById('login-error');
-
-let selectedUserIdForAuth = null;
+let isSignupMode = false;
 
 // Dashboard Elements
 const dailyChecklistEl = document.getElementById('daily-checklist');
@@ -499,93 +511,117 @@ btnUploadProof.addEventListener('click', () => {
 });
 
 // --- AUTH LOGIC ---
+const appContainer = document.getElementById('app');
 
-// 1. Select User
-document.querySelectorAll('.btn-select-user').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-        selectedUserIdForAuth = e.target.getAttribute('data-userid');
-        const user = state.users[selectedUserIdForAuth];
-        
-        screenSelect.style.display = 'none';
-        
-        if (!user.credentials) {
-            // Needs setup
-            setupNameDisplay.textContent = user.name;
-            screenSetup.style.display = 'block';
-        } else {
-            // Already setup, needs login
-            loginNameDisplay.textContent = user.name;
-            screenLogin.style.display = 'block';
-        }
-    });
-});
-
-// Back buttons
-document.querySelectorAll('.btn-back').forEach(btn => {
-    btn.addEventListener('click', () => {
-        screenSetup.style.display = 'none';
-        screenLogin.style.display = 'none';
-        screenSelect.style.display = 'block';
-        loginError.style.display = 'none';
-    });
-});
-
-// 2. Setup Credentials
-btnSaveCreds.addEventListener('click', () => {
-    const id = setupUserid.value.trim();
-    const pass = setupPassword.value.trim();
+// Toggle between Login and Signup modes
+toggleAuthMode.addEventListener('click', (e) => {
+    e.preventDefault();
+    isSignupMode = !isSignupMode;
     
-    if (!id || !pass) {
-        alert("Please fill in both User ID and Password");
+    if (isSignupMode) {
+        authTitle.textContent = 'Create an Account';
+        authSubtitle.textContent = 'Sign up to join Khata.';
+        authNameGroup.style.display = 'block';
+        btnAuthSubmit.textContent = 'Sign Up';
+        toggleAuthMode.textContent = 'Already have an account? Log in';
+    } else {
+        authTitle.textContent = 'Welcome Back';
+        authSubtitle.textContent = 'Sign in to continue to Khata.';
+        authNameGroup.style.display = 'none';
+        btnAuthSubmit.textContent = 'Log In';
+        toggleAuthMode.textContent = "Don't have an account? Sign up";
+    }
+    authError.style.display = 'none';
+});
+
+// Handle Auth Submit (Email/Password)
+btnAuthSubmit.addEventListener('click', async () => {
+    const email = authEmail.value.trim();
+    const password = authPassword.value;
+    const name = authName.value.trim();
+    
+    if (!email || !password) {
+        authError.textContent = "Please fill in email and password.";
+        authError.style.display = 'block';
         return;
     }
     
-    // Save creds
-    state.users[selectedUserIdForAuth].credentials = { id, pass };
-    state.currentUser = selectedUserIdForAuth;
-    saveState();
-    
-    authScreen.style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
-});
+    if (isSignupMode && !name) {
+        authError.textContent = "Please provide your full name.";
+        authError.style.display = 'block';
+        return;
+    }
 
-// 3. Login Verification
-btnLogin.addEventListener('click', () => {
-    const id = loginUserid.value.trim();
-    const pass = loginPassword.value.trim();
-    
-    const user = state.users[selectedUserIdForAuth];
-    if (user.credentials.id === id && user.credentials.pass === pass) {
-        state.currentUser = selectedUserIdForAuth;
-        saveState();
+    try {
+        btnAuthSubmit.disabled = true;
+        authError.style.display = 'none';
         
-        authScreen.style.display = 'none';
-        document.getElementById('app').style.display = 'flex';
-        loginError.style.display = 'none';
-    } else {
-        loginError.style.display = 'block';
+        if (isSignupMode) {
+            const userCred = await createUserWithEmailAndPassword(auth, email, password);
+            await updateProfile(userCred.user, { displayName: name });
+            initializeUserInState(userCred.user.uid, name);
+        } else {
+            const userCred = await signInWithEmailAndPassword(auth, email, password);
+            initializeUserInState(userCred.user.uid, userCred.user.displayName || email.split('@')[0]);
+        }
+    } catch (err) {
+        authError.textContent = err.message;
+        authError.style.display = 'block';
+        console.error(err);
+    } finally {
+        btnAuthSubmit.disabled = false;
     }
 });
 
+// Handle Google Sign-in
+btnGoogleSignin.addEventListener('click', async () => {
+    try {
+        const result = await signInWithPopup(auth, googleProvider);
+        initializeUserInState(result.user.uid, result.user.displayName || 'Google User');
+    } catch (err) {
+        authError.textContent = err.message;
+        authError.style.display = 'block';
+        console.error(err);
+    }
+});
+
+function initializeUserInState(uid, name) {
+    if (!state.users[uid]) {
+        state.users[uid] = { id: uid, name: name, credentials: null, streak: 0, score: 0, lastStreakDate: null };
+    }
+    if (!state.userTasks[uid]) {
+        state.userTasks[uid] = JSON.parse(JSON.stringify(defaultTasks));
+    }
+    state.currentUser = uid;
+    saveState();
+}
+
 // Logout
 if(btnLogout) {
-    btnLogout.addEventListener('click', () => {
-        state.currentUser = null;
-        saveState();
-        
-        document.getElementById('app').style.display = 'none';
-        screenSelect.style.display = 'block';
-        screenSetup.style.display = 'none';
-        screenLogin.style.display = 'none';
-        authScreen.style.display = 'flex';
-        
-        setupUserid.value = '';
-        setupPassword.value = '';
-        loginUserid.value = '';
-        loginPassword.value = '';
-        loginError.style.display = 'none';
+    btnLogout.addEventListener('click', async () => {
+        try {
+            await signOut(auth);
+            state.currentUser = null;
+            saveState();
+        } catch(err) {
+            console.error("Error signing out", err);
+        }
     });
 }
+
+// Firebase Auth State Listener
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        initializeUserInState(user.uid, user.displayName || (user.email ? user.email.split('@')[0] : 'User'));
+        authScreen.style.display = 'none';
+        appContainer.style.display = 'flex';
+        render(); // Force render to show correct data
+    } else {
+        state.currentUser = null;
+        appContainer.style.display = 'none';
+        authScreen.style.display = 'flex';
+    }
+});
 
 // Fines History Logic
 function renderFinesHistory() {
@@ -785,19 +821,10 @@ setTimeout(checkMeetingReminders, 2500);
 render();
 
 // Splash Screen Logic
-window.addEventListener('load', () => {
-    const splashScreen = document.getElementById('splash-screen');
-    const appContainer = document.getElementById('app');
-    
+const splashScreen = document.getElementById('splash-screen');
+setTimeout(() => {
+    splashScreen.classList.add('fade-out');
     setTimeout(() => {
-        splashScreen.classList.add('fade-out');
-        setTimeout(() => {
-            splashScreen.style.display = 'none';
-            if (state.currentUser) {
-                appContainer.style.display = 'flex';
-            } else {
-                authScreen.style.display = 'flex';
-            }
-        }, 500); // match transition duration
-    }, 2000); // show splash for 2 seconds
-});
+        splashScreen.style.display = 'none';
+    }, 500); // match transition duration
+}, 2000); // show splash for 2 seconds
