@@ -29,24 +29,11 @@ const defaultTasks = [
 
 const INITIAL_STATE = {
     currentUser: null,
-    users: {
-        'user_1': { id: 'user_1', name: 'Mohammed faheem', credentials: null, streak: 0, score: 0, lastStreakDate: null },
-        'user_2': { id: 'user_2', name: 'Mahmood Ihlas', credentials: null, streak: 0, score: 0, lastStreakDate: null },
-        'user_3': { id: 'user_3', name: 'Mohammed Firoz', credentials: null, streak: 0, score: 0, lastStreakDate: null }
-    },
-    userTasks: {
-        'user_1': JSON.parse(JSON.stringify(defaultTasks)),
-        'user_2': JSON.parse(JSON.stringify(defaultTasks)),
-        'user_3': JSON.parse(JSON.stringify(defaultTasks))
-    },
+    users: {},
+    userTasks: {},
     messages: [],
-    finesHistory: [
-        { id: 'f1', userId: 'user_2', amount: 10, date: '2026-05-01' }
-    ],
-    agendas: [
-        { id: 'a1', text: 'Review weekly habits' },
-        { id: 'a2', text: 'Discuss book insights' }
-    ],
+    finesHistory: [],
+    agendas: [],
     excuseRequests: []
 };
 
@@ -166,7 +153,23 @@ function render() {
     renderChat();
     renderFinesHistory();
     renderAgendas();
+    renderPaymentDropdown();
     lucide.createIcons();
+}
+
+function renderPaymentDropdown() {
+    if(!paymentUserSelect) return;
+    const currentVal = paymentUserSelect.value;
+    paymentUserSelect.innerHTML = '';
+    Object.values(state.users).forEach(user => {
+        const option = document.createElement('option');
+        option.value = user.id;
+        option.textContent = user.name;
+        paymentUserSelect.appendChild(option);
+    });
+    if (state.users[currentVal]) {
+        paymentUserSelect.value = currentVal;
+    }
 }
 
 function renderDashboard() {
@@ -612,12 +615,24 @@ if(btnLogout) {
 
 // Firebase Chat Listener
 let unsubscribeChat = null;
+let initialChatLoad = true;
 
 function setupChatListener() {
     if (unsubscribeChat) unsubscribeChat();
     
     const q = query(collection(db, "messages"), orderBy("timestamp", "asc"));
     unsubscribeChat = onSnapshot(q, (snapshot) => {
+        if (!initialChatLoad) {
+            snapshot.docChanges().forEach((change) => {
+                if (change.type === "added") {
+                    const msg = change.doc.data();
+                    if (state.currentUser && msg.senderId !== state.currentUser) {
+                        sendNotification("New Message from " + (msg.senderName || 'Brother'), msg.text);
+                    }
+                }
+            });
+        }
+        
         state.messages = [];
         snapshot.forEach((doc) => {
             state.messages.push({ id: doc.id, ...doc.data() });
@@ -630,6 +645,8 @@ function setupChatListener() {
         } else {
             renderChat();
         }
+        
+        initialChatLoad = false;
     });
 }
 
@@ -649,8 +666,15 @@ function setupStateListener(uid, name) {
             state.excuseRequests = data.excuseRequests || state.excuseRequests;
         }
         
-        state.currentUser = uid;
         let needsSave = false;
+        
+        // Clean up legacy hardcoded users
+        ['user_1', 'user_2', 'user_3'].forEach(id => {
+            if (state.users[id]) { delete state.users[id]; needsSave = true; }
+            if (state.userTasks[id]) { delete state.userTasks[id]; needsSave = true; }
+        });
+        
+        state.currentUser = uid;
         
         if (!state.users[uid]) {
             state.users[uid] = { id: uid, name: name, credentials: null, streak: 0, score: 0, lastStreakDate: null };
@@ -774,10 +798,31 @@ function renderAgendas() {
         li.innerHTML = `
             <span style="color:var(--primary-light); font-weight:bold;">${index + 1}.</span>
             <span style="flex:1;">${agenda.text}</span>
+            <div style="display:flex; gap:0.25rem;">
+                <button onclick="editAgenda('${agenda.id}')" style="background:none;border:none;color:var(--primary);cursor:pointer;"><i data-lucide="edit-2" style="width:14px;height:14px;"></i></button>
+                <button onclick="deleteAgenda('${agenda.id}')" style="background:none;border:none;color:var(--danger);cursor:pointer;"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
+            </div>
         `;
         agendaListEl.appendChild(li);
     });
 }
+
+window.editAgenda = function(id) {
+    const agenda = state.agendas.find(a => a.id === id);
+    if (!agenda) return;
+    const newText = prompt("Edit agenda item:", agenda.text);
+    if (newText !== null && newText.trim() !== '') {
+        agenda.text = newText.trim();
+        saveState();
+    }
+};
+
+window.deleteAgenda = function(id) {
+    if (confirm("Are you sure you want to delete this agenda item?")) {
+        state.agendas = state.agendas.filter(a => a.id !== id);
+        saveState();
+    }
+};
 
 if(btnAddAgenda) {
     btnAddAgenda.addEventListener('click', () => {
@@ -842,10 +887,12 @@ function sendNotification(title, body) {
     }
 }
 
-function checkMeetingReminders() {
+function checkReminders() {
     if (!state.currentUser) return; // don't notify if logged out
     
     const now = new Date();
+    
+    // Weekly Meeting Reminder Logic
     const nextMeeting = getNextMeetingDateIST();
     const diffMs = nextMeeting - now;
     const diffMinutes = Math.floor(diffMs / 60000);
@@ -876,15 +923,29 @@ function checkMeetingReminders() {
         shouldSave = true;
     }
     
+    // Daily 10 PM Task Reminder Logic
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const todayStr = now.toDateString();
+    
+    if (!state.lastDailyNotified) state.lastDailyNotified = '';
+    
+    // Trigger at 10:00 PM (22:00)
+    if (hours === 22 && minutes === 0 && state.lastDailyNotified !== todayStr) {
+        sendNotification("Daily Tasks Update", "It's 10:00 PM! Don't forget to update your daily habits in Khata.");
+        state.lastDailyNotified = todayStr;
+        shouldSave = true;
+    }
+    
     if (shouldSave) saveState();
 }
 
 // Request permission
 requestNotificationPermission();
 // Check every minute
-setInterval(checkMeetingReminders, 60000);
+setInterval(checkReminders, 60000);
 // Check immediately on load after splash screen
-setTimeout(checkMeetingReminders, 2500);
+setTimeout(checkReminders, 2500);
 
 // Initial Render
 render();
