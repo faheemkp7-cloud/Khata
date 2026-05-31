@@ -627,7 +627,7 @@ function setupChatListener() {
                 if (change.type === "added") {
                     const msg = change.doc.data();
                     if (state.currentUser && msg.senderId !== state.currentUser) {
-                        sendNotification("New Message from " + (msg.senderName || 'Brother'), msg.text);
+                        sendNotification("New Message from " + (msg.senderName || 'Brother'), msg.text, 'chat');
                     }
                 }
             });
@@ -884,12 +884,57 @@ function getNextMeetingDateIST() {
     return new Date(nextMeetingUTC);
 }
 
-function sendNotification(title, body) {
+window.showToast = function(title, message, onClick) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = `
+        <div class="toast-icon">
+            <i data-lucide="bell"></i>
+        </div>
+        <div class="toast-content">
+            <div class="toast-title">${title}</div>
+            <div class="toast-message">${message}</div>
+        </div>
+    `;
+    
+    if (onClick) {
+        toast.addEventListener('click', () => {
+            onClick();
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        });
+    }
+    
+    container.appendChild(toast);
+    lucide.createIcons();
+    
+    setTimeout(() => toast.classList.add('show'), 10);
+    
+    setTimeout(() => {
+        if(toast.parentElement) {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, 4000);
+}
+
+function sendNotification(title, body, type = 'system') {
+    if (window.showToast) {
+        if (type === 'chat') {
+            window.showToast(title, body, () => {
+                const chatNav = document.querySelector('.nav-item[data-target="view-chat"]');
+                if(chatNav) chatNav.click();
+            });
+        } else {
+            window.showToast(title, body);
+        }
+    }
+
     if ("Notification" in window && Notification.permission === "granted") {
         new Notification(title, { body: body });
-    } else {
-        // Fallback or if permission denied, use alert
-        alert(`🔔 Reminder: ${title}\n${body}`);
     }
 }
 

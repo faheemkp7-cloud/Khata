@@ -159,12 +159,14 @@ body {
 .app-container {
     max-width: 480px; /* Mobile constraint for desktop viewing */
     margin: 0 auto;
-    min-height: 100vh;
+    height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     background-color: var(--bg-base);
     position: relative;
     box-shadow: 0 0 40px rgba(0,0,0,0.1);
+    overflow: hidden;
 }
 
 @media (max-width: 480px) {
@@ -232,13 +234,15 @@ body {
 .content-area {
     flex: 1;
     padding: 1.25rem;
-    padding-bottom: 6rem; /* Space for bottom nav */
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
 
 .view {
     display: none;
     animation: fadeIn 0.3s ease-out forwards;
+    width: 100%;
 }
 
 .view.active {
@@ -472,10 +476,11 @@ body {
 .chat-layout {
     display: none;
     flex-direction: column;
-    height: calc(100vh - 140px); /* header + bottom nav approx */
 }
 .chat-layout.active {
     display: flex;
+    flex: 1;
+    min-height: 0;
 }
 .chat-header-actions {
     display: flex;
@@ -555,9 +560,6 @@ body {
 
 /* Bottom Navigation */
 .bottom-nav {
-    position: sticky;
-    bottom: 0;
-    left: 0;
     width: 100%;
     display: flex;
     justify-content: space-around;
@@ -567,6 +569,7 @@ body {
     padding: 0.75rem 0;
     padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
     z-index: 50;
+    flex-shrink: 0;
 }
 
 .nav-item {
@@ -693,3 +696,54 @@ body {
     transition: opacity 0.2s;
 }
 .btn-reject:hover { opacity: 0.9; }
+
+/* Toast Notification */
+.toast-container {
+    position: fixed;
+    top: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    pointer-events: none;
+    width: 90%;
+    max-width: 400px;
+}
+.toast {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--primary);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    transform: translateY(-20px);
+    opacity: 0;
+    transition: all 0.3s ease;
+    pointer-events: auto;
+    cursor: pointer;
+}
+.toast.show {
+    transform: translateY(0);
+    opacity: 1;
+}
+.toast-icon {
+    color: var(--primary);
+    display: flex;
+}
+.toast-content {
+    flex: 1;
+}
+.toast-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 0.15rem;
+}
+.toast-message {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
