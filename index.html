@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Khata - Accountability</title>
+    
+    <!-- Google Fonts: Outfit for a modern, clean look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- PWA Manifest & Icons -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#10b981">
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Splash Screen -->
+    <div id="splash-screen" class="splash-screen">
+        <h1 class="splash-text">مرحباً</h1>
+    </div>
+
+    <!-- Auth Screen -->
+    <div id="auth-screen" class="auth-screen" style="display: none;">
+        <div class="auth-card text-center" style="max-width: 400px; margin: 0 auto;">
+            <div class="login-logo text-primary mb-4">
+                <i data-lucide="moon-star" style="width: 56px; height: 56px; margin: 0 auto;"></i>
+            </div>
+            <h2 id="auth-title" class="mb-2">Welcome Back</h2>
+            <p id="auth-subtitle" class="text-muted mb-6 text-sm">Sign in to continue to Khata.</p>
+            
+            <div id="auth-name-group" class="form-group mb-4 text-left" style="display: none;">
+                <label style="display:block; margin-bottom:0.5rem; font-size:0.9rem;">Full Name</label>
+                <input type="text" id="auth-name" class="form-input w-full" placeholder="Enter your full name" style="padding:0.75rem; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--bg-base); color:var(--text-primary);">
+            </div>
+            
+            <div class="form-group mb-4 text-left">
+                <label style="display:block; margin-bottom:0.5rem; font-size:0.9rem;">Email</label>
+                <input type="email" id="auth-email" class="form-input w-full" placeholder="Enter your email" style="padding:0.75rem; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--bg-base); color:var(--text-primary);">
+            </div>
+            
+            <div class="form-group mb-6 text-left">
+                <label style="display:block; margin-bottom:0.5rem; font-size:0.9rem;">Password</label>
+                <input type="password" id="auth-password" class="form-input w-full" placeholder="Enter your password" style="padding:0.75rem; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--bg-base); color:var(--text-primary);">
+            </div>
+
+            <button id="btn-auth-submit" class="btn btn-primary w-full mb-3">Log In</button>
+            <button id="btn-google-signin" class="btn w-full" style="background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-primary); display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                <svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                Sign in with Google
+            </button>
+            
+            <p id="auth-error" class="text-danger text-sm mt-4 text-center" style="display: none; color: var(--danger);"></p>
+            
+            <div class="mt-6 text-sm text-muted">
+                <a href="#" id="toggle-auth-mode" style="color: var(--primary); text-decoration: none;">Don't have an account? Sign up</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="app" class="app-container" style="display: none;">
+        <!-- Top App Bar -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo">
+                    <i data-lucide="moon-star" class="text-primary"></i>
+                    <h1 id="header-title">Khata</h1>
+                </div>
+            </div>
+            <div class="header-right" style="display: flex; align-items: center; gap: 0.25rem;">
+                <button id="theme-toggle" class="icon-btn" aria-label="Toggle theme">
+                    <i data-lucide="sun" class="sun-icon"></i>
+                    <i data-lucide="moon" class="moon-icon"></i>
+                </button>
+                <button id="btn-logout" class="icon-btn" aria-label="Logout" style="color: var(--danger);">
+                    <i data-lucide="log-out"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main id="main-content" class="content-area">
+            
+            <!-- Dashboard View -->
+            <section id="view-dashboard" class="view active">
+                <div class="user-greeting">
+                    <p class="greeting-text">As-salamu alaykum,</p>
+                    <h2 id="current-user-name">Brother</h2>
+                </div>
+
+                <!-- Meeting Reminder -->
+                <div class="card reminder-card">
+                    <div class="reminder-content">
+                        <div class="reminder-icon">
+                            <i data-lucide="calendar-clock"></i>
+                        </div>
+                        <div class="reminder-text">
+                            <h3>Weekly Check-in</h3>
+                            <p>Every Friday • 10:30 PM IST</p>
+                        </div>
+                    </div>
+                    
+                    <div class="agendas-section mt-4" style="background: rgba(0,0,0,0.1); padding: 0.75rem; border-radius: var(--radius-sm);">
+                        <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.25rem;">
+                            <i data-lucide="list-todo" style="width:16px;height:16px;"></i> Agendas
+                        </h4>
+                        <ul id="agenda-list" style="list-style: none; padding: 0; margin: 0; font-size: 0.85rem; display: flex; flex-direction: column; gap: 0.35rem;">
+                            <!-- Rendered via JS -->
+                        </ul>
+                        
+                        <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
+                            <input type="text" id="agenda-input" placeholder="Add topic to discuss..." style="flex: 1; padding: 0.4rem 0.5rem; border: none; border-radius: 4px; font-size: 0.8rem; outline: none; color: #111;">
+                            <button id="btn-add-agenda" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 0.4rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 500; transition: background 0.2s;">Add</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Pending Approvals (Only visible if there are requests to vote on) -->
+                <div id="pending-approvals-container" style="display: none;">
+                    <div class="pending-approvals-card">
+                        <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--text-primary);"><i data-lucide="shield-alert" style="width:18px;height:18px;vertical-align:-3px;margin-right:4px;"></i> Pending Approvals</h3>
+                        <p class="text-sm text-muted" style="margin-bottom: 0.75rem;">Your brothers need your approval for missed habits.</p>
+                        <div id="approvals-list">
+                            <!-- Rendered via JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Daily Checklist -->
+                <div class="card checklist-card">
+                    <div class="card-header" style="align-items: center;">
+                        <h3 style="display: flex; align-items: center; gap: 0.5rem;">Daily Tasks <span id="daily-date" style="font-size: 0.75rem; font-weight: 400; color: var(--text-muted);"></span></h3>
+                        <span class="progress-badge" id="daily-progress">0/4</span>
+                    </div>
+                    <div class="checklist" id="daily-checklist">
+                        <!-- Rendered via JS -->
+                    </div>
+                </div>
+
+                <!-- Leaderboard / Group Status -->
+                <div class="card group-card">
+                    <div class="card-header">
+                        <h3>Brotherhood</h3>
+                        <button class="text-btn text-primary">View All</button>
+                    </div>
+                    <div class="leaderboard" id="leaderboard-container">
+                        <!-- Rendered via JS -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Fines View -->
+            <section id="view-fines" class="view hidden">
+                <div class="fines-header">
+                    <h2>Penalties</h2>
+                    <p class="text-muted">Pay your fines for missed habits to maintain accountability.</p>
+                </div>
+                
+                <div class="card qr-card text-center">
+                    <h3>Group Fund (Google Pay)</h3>
+                    <p class="text-sm text-secondary mb-4">Mohammed Faheem KP</p>
+                    <div class="qr-container">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=faheemkp7-3@oksbi&pn=Mohammed%20Faheem%20KP" alt="Google Pay QR Code" class="qr-image" id="fines-qr-code">
+                    </div>
+                    <p class="text-sm font-medium mt-4">UPI ID: faheemkp7-3@oksbi</p>
+                    <p class="text-sm text-muted">Scan using Google Pay or any UPI app</p>
+                    
+                    <div class="upload-proof mt-6">
+                        <button class="btn btn-primary w-full" id="btn-upload-proof">
+                            <i data-lucide="upload"></i> Upload Receipt
+                        </button>
+                    </div>
+                </div>
+
+                <div class="fine-rules mt-6 p-3" style="background-color: var(--primary-transparent); border-radius: var(--radius-sm); border-left: 3px solid var(--danger);">
+                    <p class="text-sm font-medium" style="color: var(--danger);"><i data-lucide="alert-triangle" style="width:16px;height:16px;vertical-align:-3px;margin-right:4px;"></i> Rule: First fine is ₹10. Each repeat violation doubles the amount (₹20, ₹40, ₹80...).</p>
+                </div>
+
+                <div class="payment-history-section mt-6">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                        <h3>Payment History</h3>
+                    </div>
+
+                    <!-- Manual Add Form -->
+                    <div class="card add-payment-card">
+                        <h4 class="text-sm mb-2 text-muted">Manually Log Payment</h4>
+                        <div class="add-payment-form" style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+                            <select id="payment-user" class="form-input" style="flex:2; padding:0.5rem; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--bg-base); color:var(--text-primary);">
+                                <!-- Rendered via JS -->
+                            </select>
+                            <input type="number" id="payment-amount" class="form-input" placeholder="₹ Amt" style="flex:1; padding:0.5rem; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--bg-base); color:var(--text-primary);">
+                            <button id="btn-add-payment" class="btn btn-primary" style="padding:0.5rem 1rem;">Add</button>
+                        </div>
+                    </div>
+                    
+                    <!-- History List -->
+                    <div id="history-list" class="history-list">
+                        <!-- Rendered via JS -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Chat & Video View -->
+            <section id="view-chat" class="view hidden chat-layout">
+                <div class="chat-header-actions" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h2>Group Chat</h2>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button id="btn-launch-teams" class="btn btn-icon btn-video" style="background-color: #5558AF; color: white;">
+                            <i data-lucide="video"></i>
+                            <span>Join Teams</span>
+                        </button>
+                        <button id="btn-edit-teams-link" class="btn btn-icon" style="padding: 0.5rem; background: var(--bg-surface); border: 1px solid var(--border);" title="Set Meeting Link">
+                            <i data-lucide="link" style="width: 16px; height: 16px;"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="chat-messages" id="chat-messages">
+                    <!-- Rendered via JS -->
+                </div>
+                
+                <div class="chat-input-area">
+                    <button class="icon-btn"><i data-lucide="paperclip"></i></button>
+                    <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off">
+                    <button class="icon-btn text-primary" id="btn-send-message"><i data-lucide="send"></i></button>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" data-target="view-dashboard">
+                <i data-lucide="layout-dashboard"></i>
+                <span>Tasks</span>
+            </button>
+            <button class="nav-item" data-target="view-chat">
+                <i data-lucide="message-circle"></i>
+                <span>Chat</span>
+            </button>
+            <button class="nav-item" data-target="view-fines">
+                <i data-lucide="wallet"></i>
+                <span>Fines</span>
+            </button>
+        </nav>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
