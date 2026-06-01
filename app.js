@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, setDoc } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, setDoc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDUdx2mxoExiAsxyktlzSfUgp8HHEsbbS8",
@@ -141,6 +141,7 @@ navItems.forEach(item => {
         // Scroll chat to bottom if chat is opened
         if (targetId === 'view-chat') {
             scrollToBottom();
+            if (typeof markMessagesAsSeen === 'function') markMessagesAsSeen();
         }
     });
 });
@@ -453,8 +454,21 @@ function renderChat() {
         }
         html += `
             <div class="msg-text">${msg.text}</div>
-            <div class="msg-time">${msg.localTimeStr || msg.timestamp || ''}</div>
+            <div class="msg-time" style="display:flex; align-items:center; justify-content:flex-end; gap:0.25rem;">
+                ${msg.localTimeStr || msg.timestamp || ''}
         `;
+        
+        if (isMe) {
+            const seenByOthers = (msg.seenBy || []).filter(id => id !== state.currentUser);
+            if (seenByOthers.length > 0) {
+                const names = seenByOthers.map(id => state.users[id]?.name || 'Unknown').join(', ');
+                html += `<i data-lucide="check-check" style="width:14px;height:14px;color:#fff;" title="Seen by: ${names}"></i>`;
+            } else {
+                html += `<i data-lucide="check" style="width:14px;height:14px;color:rgba(255,255,255,0.7);"></i>`;
+            }
+        }
+        html += `</div>`;
+        
         msgEl.innerHTML = html;
         chatMessagesEl.appendChild(msgEl);
     });
@@ -491,7 +505,8 @@ async function sendMessage() {
             senderName: senderName,
             text: text,
             timestamp: serverTimestamp(),
-            localTimeStr: timeString
+            localTimeStr: timeString,
+            seenBy: [state.currentUser]
         });
         scrollToBottom();
     } catch (e) {
@@ -634,20 +649,85 @@ function setupChatListener() {
         }
         
         state.messages = [];
+        let unreadCount = 0;
+        
         snapshot.forEach((doc) => {
-            state.messages.push({ id: doc.id, ...doc.data() });
+            const data = doc.data();
+            state.messages.push({ id: doc.id, ...data });
+            
+            if (state.currentUser && data.senderId !== state.currentUser && (!data.seenBy || !data.seenBy.includes(state.currentUser))) {
+                unreadCount++;
+            }
         });
         
         const isChatOpen = document.getElementById('view-chat').classList.contains('active');
         if (isChatOpen) {
             renderChat();
             scrollToBottom();
+            markMessagesAsSeen();
         } else {
             renderChat();
+            updateAppBadge(unreadCount);
         }
         
         initialChatLoad = false;
     });
+}
+
+function updateAppBadge(count) {
+    if ('setAppBadge' in navigator) {
+        if (count > 0) {
+            navigator.setAppBadge(count).catch(console.error);
+        } else {
+            navigator.clearAppBadge().catch(console.error);
+        }
+    }
+    // Also update UI badge
+    const chatNav = document.querySelector('.nav-item[data-target="view-chat"]');
+    if (chatNav) {
+        let badge = chatNav.querySelector('.nav-badge');
+        if (count > 0) {
+            if (!badge) {
+                badge = document.createElement('div');
+                badge.className = 'nav-badge';
+                badge.style.position = 'absolute';
+                badge.style.top = '4px';
+                badge.style.right = '25%';
+                badge.style.background = 'var(--danger)';
+                badge.style.color = 'white';
+                badge.style.fontSize = '0.65rem';
+                badge.style.padding = '1px 5px';
+                badge.style.borderRadius = '10px';
+                badge.style.fontWeight = 'bold';
+                badge.style.lineHeight = '1';
+                chatNav.style.position = 'relative';
+                chatNav.appendChild(badge);
+            }
+            badge.textContent = count > 9 ? '9+' : count;
+        } else if (badge) {
+            badge.remove();
+        }
+    }
+}
+
+window.markMessagesAsSeen = async function() {
+    if (!state.currentUser) return;
+    const unseenMsgs = state.messages.filter(msg => msg.senderId !== state.currentUser && (!msg.seenBy || !msg.seenBy.includes(state.currentUser)));
+    
+    if (unseenMsgs.length > 0) {
+        updateAppBadge(0);
+        
+        // Update in Firestore
+        unseenMsgs.forEach(async (msg) => {
+            try {
+                await updateDoc(doc(db, "messages", msg.id), {
+                    seenBy: arrayUnion(state.currentUser)
+                });
+            } catch(e) {
+                console.error("Error marking seen", e);
+            }
+        });
+    }
 }
 
 // App State Listener
