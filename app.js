@@ -472,6 +472,11 @@ function renderChat() {
         msgEl.innerHTML = html;
         chatMessagesEl.appendChild(msgEl);
     });
+    
+    // Render the lucide icons we just injected
+    if (window.lucide) {
+        lucide.createIcons();
+    }
 }
 
 function scrollToBottom() {
