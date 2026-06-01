@@ -934,7 +934,15 @@ function sendNotification(title, body, type = 'system') {
     }
 
     if ("Notification" in window && Notification.permission === "granted") {
-        new Notification(title, { body: body });
+        if (navigator.serviceWorker) {
+            navigator.serviceWorker.ready.then(registration => {
+                registration.showNotification(title, { body: body, icon: './icon.png' });
+            }).catch(err => {
+                new Notification(title, { body: body, icon: './icon.png' });
+            });
+        } else {
+            new Notification(title, { body: body, icon: './icon.png' });
+        }
     }
 }
 
