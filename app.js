@@ -21,11 +21,35 @@ lucide.createIcons();
 
 // --- STATE MANAGEMENT ---
 const defaultTasks = [
-    { id: 't1', title: '5 Daily Salah', desc: 'Fajr, Dhuhr, Asr, Maghrib, Isha', completed: false },
+    { id: 't1_1', title: 'Fajr Salah', desc: 'Perform Fajr prayer', completed: false },
+    { id: 't1_2', title: 'Dhuhr Salah', desc: 'Perform Dhuhr prayer', completed: false },
+    { id: 't1_3', title: 'Asr Salah', desc: 'Perform Asr prayer', completed: false },
+    { id: 't1_4', title: 'Maghrib Salah', desc: 'Perform Maghrib prayer', completed: false },
+    { id: 't1_5', title: 'Isha Salah', desc: 'Perform Isha prayer', completed: false },
     { id: 't2', title: 'Quran Reading', desc: 'Minimum 2 pages', completed: false },
     { id: 't3', title: 'Self-Improvement', desc: 'Read 10 pages of a book', completed: false },
     { id: 't4', title: 'Avoid Distractions', desc: 'No mindless scrolling', completed: false }
 ];
+
+function playSuccessSound() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05);
+        gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.15);
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.15);
+    } catch(e) {
+        console.error("Audio not supported");
+    }
+}
 
 const INITIAL_STATE = {
     currentUser: null,
@@ -289,6 +313,7 @@ window.toggleTask = function(taskId) {
     
     if (task) {
         task.completed = !task.completed;
+        if (task.completed) playSuccessSound();
         
         const todayStr = new Date().toDateString();
         
@@ -771,6 +796,26 @@ function setupStateListener(uid, name) {
             state.users[uid] = { id: uid, name: name, credentials: null, streak: 0, score: 0, lastStreakDate: null };
             needsSave = true;
         }
+        
+        // Migrate legacy 't1' (5 Daily Salah) to the 5 individual tasks
+        Object.keys(state.userTasks || {}).forEach(userId => {
+            const tasks = state.userTasks[userId];
+            if (tasks && tasks.some(t => t.id === 't1')) {
+                const t1Index = tasks.findIndex(t => t.id === 't1');
+                const t1Completed = tasks[t1Index].completed;
+                tasks.splice(t1Index, 1); // remove old t1
+                const newTasks = [
+                    { id: 't1_1', title: 'Fajr Salah', desc: 'Perform Fajr prayer', completed: t1Completed },
+                    { id: 't1_2', title: 'Dhuhr Salah', desc: 'Perform Dhuhr prayer', completed: t1Completed },
+                    { id: 't1_3', title: 'Asr Salah', desc: 'Perform Asr prayer', completed: t1Completed },
+                    { id: 't1_4', title: 'Maghrib Salah', desc: 'Perform Maghrib prayer', completed: t1Completed },
+                    { id: 't1_5', title: 'Isha Salah', desc: 'Perform Isha prayer', completed: t1Completed }
+                ];
+                tasks.splice(t1Index, 0, ...newTasks);
+                needsSave = true;
+            }
+        });
+
         if (!state.userTasks[uid]) {
             state.userTasks[uid] = JSON.parse(JSON.stringify(defaultTasks));
             needsSave = true;
